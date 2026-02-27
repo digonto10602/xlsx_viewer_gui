@@ -2,18 +2,11 @@
 """
 Xlsx Row Viewer (Tkinter GUI)
 
-Requested:
-- Font: Palatino (best-effort) + 1.5x larger than Tk defaults
+- Font: Palatino-ish (best-effort) + 1.5x larger
 - Window: 1920x1080
-- Values: larger, mouse-selectable, right-click -> Copy, then paste anywhere
-- Sheet selector
-- File picker if no file passed
-- URL values: show an "Open URL" button
-
-Notes on Palatino:
-- Windows commonly has "Palatino Linotype"
-- macOS commonly has "Palatino"
-- Linux may have "URW Palladio L" or "TeX Gyre Pagella" (similar)
+- Values: larger, selectable, right-click -> Copy (clipboard), paste anywhere
+- Sheet selector + file picker
+- URL values: Open URL button
 """
 
 import argparse
@@ -29,7 +22,7 @@ def enable_hidpi_awareness():
     if platform.system().lower() == "windows":
         try:
             import ctypes
-            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # per-monitor aware
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
         except Exception:
             try:
                 import ctypes
@@ -56,11 +49,11 @@ def load_sheet(path: str, sheet_name: str) -> pd.DataFrame:
 
 def choose_palatino_family() -> str:
     candidates = [
-        "Palatino Linotype",   # Windows
-        "Palatino",            # macOS
-        "URW Palladio L",      # Linux common
-        "TeX Gyre Pagella",    # Palatino-like
-        "Book Antiqua",        # Windows alternative
+        "Palatino Linotype",
+        "Palatino",
+        "URW Palladio L",
+        "TeX Gyre Pagella",
+        "Book Antiqua",
         "Times New Roman",
         "DejaVu Serif",
         "Liberation Serif",
@@ -89,10 +82,9 @@ class ScrollFrame(ttk.Frame):
         self.inner.bind("<Configure>", self._on_inner_configure)
         self.canvas.bind("<Configure>", self._on_canvas_configure)
 
-        # Mouse wheel scrolling
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)  # Windows
-        self.canvas.bind_all("<Button-4>", self._on_mousewheel)    # Linux up
-        self.canvas.bind_all("<Button-5>", self._on_mousewheel)    # Linux down
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-4>", self._on_mousewheel)
+        self.canvas.bind_all("<Button-5>", self._on_mousewheel)
 
     def _on_inner_configure(self, _event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -128,23 +120,19 @@ class App(tk.Tk):
         self.geometry("1920x1080")
         self.minsize(1100, 700)
 
-        # Theme
         self.style = ttk.Style(self)
         for t in ("vista", "xpnative", "clam"):
             if t in self.style.theme_names():
                 self.style.theme_use(t)
                 break
 
-        # Fonts
         self.family = choose_palatino_family()
         self._apply_fonts(scale=1.5)
 
-        # Right-click context menu for values
         self.value_menu = tk.Menu(self, tearoff=0)
         self.value_menu.add_command(label="Copy", command=self._copy_from_active_value)
         self._active_value_widget: tk.Text | None = None
 
-        # UI
         self._build_topbar()
         self._build_header()
         self._build_scroll_area()
@@ -155,15 +143,12 @@ class App(tk.Tk):
 
     def _apply_fonts(self, scale: float):
         base = tkfont.nametofont("TkDefaultFont")
-        base_size = base.cget("size")
-        if base_size == 0:
-            base_size = 12
+        base_size = base.cget("size") or 12
 
         def scaled(sz):
             sgn = -1 if sz < 0 else 1
             return int(abs(sz) * scale) * sgn
 
-        # Update named fonts to Palatino-ish family and scaled size
         for name in (
             "TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont",
             "TkCaptionFont", "TkSmallCaptionFont", "TkIconFont", "TkTooltipFont"
@@ -174,12 +159,9 @@ class App(tk.Tk):
             except Exception:
                 pass
 
-        # Custom fonts
         self.font_bold = tkfont.Font(family=self.family, size=scaled(base_size), weight="bold")
         self.font_header = tkfont.Font(family=self.family, size=scaled(base_size + 5), weight="bold")
-
-        # Value font (explicitly larger for the printed values)
-        self.font_value = tkfont.Font(family=self.family, size=scaled(base_size + 2), weight="normal")
+        self.font_value = tkfont.Font(family=self.family, size=scaled(base_size + 3), weight="normal")
 
     def _build_topbar(self):
         top = ttk.Frame(self, padding=(16, 14))
@@ -307,15 +289,12 @@ class App(tk.Tk):
         for u in urls:
             webbrowser.open(u, new=2)
 
-    # ---------- Copy / context menu ----------
     def _copy_from_active_value(self):
         w = self._active_value_widget
         if not w:
             return
         try:
-            # Copy selected text if any; otherwise copy full content
-            sel = w.selection_get()
-            txt = sel
+            txt = w.selection_get()
         except Exception:
             txt = w.get("1.0", "end-1c")
         self.clipboard_clear()
@@ -330,12 +309,6 @@ class App(tk.Tk):
         self.value_menu.tk_popup(event.x_root, event.y_root)
 
     def _add_selectable_value(self, parent, text: str):
-        """
-        Read-only, selectable Text widget with:
-        - bigger value font
-        - right-click Copy menu
-        - Ctrl+C support
-        """
         txt = tk.Text(
             parent,
             wrap="word",
@@ -346,17 +319,14 @@ class App(tk.Tk):
             pady=8,
             font=self.font_value,
         )
-
         content = text if (text is not None and text != "") else "(empty)"
         txt.insert("1.0", content)
 
-        # Height heuristics
         lines = max(1, content.count("\n") + 1)
         if len(content) > 160:
             lines = max(lines, 3)
         txt.configure(height=lines)
 
-        # Keep selectable but read-only: toggle enable during selection/copy
         txt.configure(state="disabled")
 
         def enable(_e=None):
@@ -370,7 +340,6 @@ class App(tk.Tk):
         txt.bind("<ButtonRelease-1>", disable)
 
         def on_copy(_e=None):
-            # copy selection if exists else full
             self._active_value_widget = txt
             self._copy_from_active_value()
             return "break"
@@ -380,9 +349,8 @@ class App(tk.Tk):
         txt.bind("<Command-c>", on_copy)
         txt.bind("<Command-C>", on_copy)
 
-        # Right-click menu
-        txt.bind("<Button-3>", lambda e, w=txt: self._show_value_menu(w, e))  # Windows/Linux
-        txt.bind("<Button-2>", lambda e, w=txt: self._show_value_menu(w, e))  # macOS
+        txt.bind("<Button-3>", lambda e, w=txt: self._show_value_menu(w, e))
+        txt.bind("<Button-2>", lambda e, w=txt: self._show_value_menu(w, e))
 
         txt.pack(anchor="w", fill="x", expand=True)
         return txt

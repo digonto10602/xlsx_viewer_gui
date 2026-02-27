@@ -31,6 +31,15 @@ jobs:
         run: |
           choco install innosetup -y
 
+      - name: Debug workspace
+        run: |
+          echo "=== repo root ==="
+          dir
+          echo "=== dist ==="
+          dir dist
+          echo "=== readme search ==="
+          powershell -Command "Get-ChildItem -Recurse -File | Where-Object {$_.Name -match 'readme'} | Select-Object FullName"
+
       - name: Build installer with Inno Setup
         run: |
           iscc installer.iss
